@@ -1,0 +1,4 @@
+:host {
+    flex-grow: 10;
+    min-height: 800px;
+}

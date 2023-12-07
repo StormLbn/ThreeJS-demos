@@ -1,0 +1,5 @@
+main {
+    flex-grow: 10;
+    display: flex;
+    flex-flow: column nowrap;
+}

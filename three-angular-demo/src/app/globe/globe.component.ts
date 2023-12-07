@@ -1,11 +1,6 @@
 import { AfterViewInit, Component, ElementRef, ViewChild } from '@angular/core';
 import * as THREE from 'three';
 
-type ClientCoordinates = {
-  clientX: number,
-  clientY: number
-}
-
 @Component({
   selector: 'app-globe',
   templateUrl: './globe.component.html',
@@ -15,16 +10,7 @@ export class GlobeComponent implements AfterViewInit {
 
   @ViewChild('canvas')
   private canvasRef!: ElementRef<HTMLCanvasElement>;
-
-  // Mouse object for globe interaction
-  private mouse = {
-    x: 0,
-    y: 0,
-    down: false,
-    xPrev: 0,
-    yPrev: 0
-  }
-
+  
   // Shaders (= content of assets/three-shaders files but I can't load them in Angular)
   private vertexShader = `
     varying vec2 vertexUV;
@@ -63,6 +49,8 @@ export class GlobeComponent implements AfterViewInit {
     }
   `;
 
+  constructor(private hostElement: ElementRef) {}
+
   ngAfterViewInit(): void {
     // Creating the globe :
 
@@ -79,6 +67,7 @@ export class GlobeComponent implements AfterViewInit {
     const texture = new THREE.TextureLoader().load('assets/img/nasa_may_earth.jpg');
 
     // Material using shaders
+    // To use texture but no shaders, use MeshBasicMaterial({map: texture})
     const material = new THREE.ShaderMaterial({
       // Passing the globe shaders
       vertexShader: this.vertexShader,
@@ -151,22 +140,22 @@ export class GlobeComponent implements AfterViewInit {
     scene.add(atmosphere);
     scene.add(stars);
 
+
     const camera = new THREE.PerspectiveCamera(
       75,
-      innerWidth / innerHeight,
+      this.hostElement.nativeElement.clientWidth / this.hostElement.nativeElement.clientHeight,
       0.1,
       1000
     );
     camera.position.z = 11;
-
+    
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       canvas: this.canvasRef.nativeElement
     });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(innerWidth, innerHeight);
+    renderer.setSize(this.hostElement.nativeElement.clientWidth, this.hostElement.nativeElement.clientHeight, false);
 
-
+    
     // Render and animation :
 
     function animate() {
@@ -181,10 +170,4 @@ export class GlobeComponent implements AfterViewInit {
     animate();
   }
 
-  // Stopping rotation on click ??
-  onMouseDown(mousedown: MouseEvent) {
-  //   this.mouse.down = true;
-  //   this.mouse.xPrev = mousedown.clientX;
-  //   this.mouse.yPrev = mousedown.clientY;
-  }
 }

@@ -5,8 +5,17 @@ Démo d'utilisation de Three.js dans un projet Angular.
 Ressources :
 - [Tutoriel Three.js natif](https://threejs.org/manual/#en/fundamentals)
 - [Installation et mise en place de Three.js dans Angular](https://medium.com/geekculture/hello-cube-your-first-three-js-scene-in-angular-176c44b9c6c0)
+- [Tutoriel globe avec atmosphère](https://www.youtube.com/watch?v=vM8M4QloVL0) et [repo GitHub associé](https://github.com/chriscourses/Intermediate-Three.js/blob/main/main.js)
 
-A faire : démo d'une sphère avec texture.
+A faire :
+- interactions avec le globe (rotation manuelle)
+- refactoriser pour "sortir" les éléments du ngAfterViewInit()
+
+## Sommaire
+1. [Initialisation du projet Angular](#Initialisation-du-projet)
+1. [Bases pour créer un objet 3D](#Création-d'un-composant-pour-l'affichage-d'un-objet-3D)
+1. [Notions supplémentaires pour le globe](#Création-d'un-globe-avec-texture-et-shaders)
+---
 
 ## Initialisation du projet
 
@@ -81,9 +90,79 @@ Remarque : il est possible de modifier les paramètres de certains éléments (p
 
 #### Animer un objet :
 
-Dans cette démo, l'animation est faite avec une fonction récursive `render(time)`, qui prend automatiquement en paramètre le temps depuis lequel la page a été chargée (en millisecondes).
-Ce paramètre temps est utilisé pour faire une rotation du Mesh ; le paramètre de rotation est en radians.
-Après la rotation, on déclanche le rendu, puis on utilise la fonction `requestAnimationFrame(callback)` en appelant `render` en paramètre, pour que l'animation se poursuive à la frame suivante.
-Il faut quand même appeler une première fois la fonction en ajoutant `requestAnimationFrame(render)` à la suite d'instructions.
+Pour animer un objet, il faut modifier continuellement un ou plusieurs de ses paramètres `rotation` (en radians). Pour cela, on utilise une fonction récursive qui fait appel à `requestAnimationFrame(callback)`.
 
-Il y a peut-être plus simple mais c'est ce que j'ai trouvé dans la démo Three.js `¯\_(ツ)_/¯`
+Dans cette démo, l'animation est faite avec la fonction `render(time)`, qui prend automatiquement en paramètre le temps depuis lequel la page a été chargée (en millisecondes). C'est ce paramètre temps est utilisé pour faire la rotation du Mesh.
+
+Le paramètre de temps n'est pas indispensable pour faire une animation : dans la démo du globe, on ajoute simplement une valeur (0.005) à la rotation à chaque "boucle".
+
+Après avoir modifié la rotation, on déclanche le rendu, puis on appelle la fonction `requestAnimationFrame(callback)` en utilisant `render` comme callback afin que l'animation se poursuive à la frame suivante.
+Il faut quand même appeler une première fois la fonction pour lancer l'animation, on ajoute donc `requestAnimationFrame(render)` à la suite d'instructions.
+
+Il y a peut-être plus simple mais c'est ce que j'ai trouvé dans toutes les démos dont celle de Three.js docs ¯\_(ツ)_/¯
+
+## Création d'un globe avec texture et shaders
+
+### Appliquer une texture
+
+Pour appliquer une texture à un objet 3D, il faut ajouter une texture à son Material.
+Pour cela, il faut d'abord "charger" la texture, puis la "mapper" sur le Material.
+Il suffit ensuite d'ajouter le Material au Mesh comme d'habitude.
+
+```typescript
+const texture = new THREE.TextureLoader().load('url/de/la/texture.jpg');
+const material = new THREE.MeshBasicMaterial({
+    map: texture
+});
+```
+
+### Utiliser des shaders
+
+Un shader est un petit programme, écrit en GLSL, qui calcule les niveaux de lumière, couleur, etc. pendant le rendu d'un objet 3D. Je n'ai pas plus de détails concernant leur fonctionnement, en tout cas ici ils permettent de simuler l'atmosphère de la Terre et les étoiles.
+
+Normalement, le shader s'écrit dans un fichier à part (voir [src/assets/three-shaders](./src/assets/three-shaders/) pour les shaders avec commentaires), mais je n'ai pas réussi à importer les fichiers dans Angular comme on aurait pu le faire en JS, donc j'ai écrit les shaders sous forme de string directement dans le fichier TS.
+
+Pour utiliser un shader, il faut un Material de type ShaderMaterial ; à sa création, on lui passe un objet de configuration avec, selon les besoins :
+- vertexShader : script GLSL pour appliquer des effets à l'objet 3D via ses sommets
+- fragmentShader : script GLSL permettant d'appliquer une texture et/ou une couleur à l'objet 3D
+- uniforms : objet de configuration permettent d'envoyer des données (comme une texture par exemple) à un fichier GLSL
+
+Autres propriétés de Material utilisées :
+- blending : ajoute un effet de transparence
+- side : définit quel "côté" de l'objet est affiché
+
+### Utiliser BufferGeometry
+
+D'après ce que j'ai compris, BufferGeometry permet d'avoir une forme customisable, via l'utilisation d'une matrice/tableau de coordonnées correspondant aux sommets de la forme.
+
+Associé à un PointsMaterial et un Mesh de type Points, il permet d'afficher uniquement les sommets du Geometry sous forme de points blancs pour simuler les étoiles.
+
+### Taille de l'affichage
+
+J'ai pas mal galéré pour pouvoir afficher un canvas dont la taille s'adapte à l'espace disponible sans dépasser de la fenêtre ; je n'ai pas encore réussi à rendre l'affichage dynamique.
+
+Pour adapter la taille du canvas et du Renderer à celle de son contenant, il faut importer l'élément `host` via le constructeur, puis utiliser clientWidht/Height pour l'aspect de la caméra et la taille du Renderer :
+```typescript
+  constructor(private hostElement: ElementRef) {}
+
+  // ...
+
+  const camera = new THREE.PerspectiveCamera(
+        75,
+        this.hostElement.nativeElement.clientWidth /
+            this.hostElement.nativeElement.clientHeight,
+        0.1,
+        1000
+    );
+    
+    const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        canvas: this.canvasRef.nativeElement
+    });
+
+    renderer.setSize(
+        this.hostElement.nativeElement.clientWidth,
+        this.hostElement.nativeElement.clientHeight,
+        false
+    );
+```
