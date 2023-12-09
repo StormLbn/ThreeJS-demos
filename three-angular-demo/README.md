@@ -8,13 +8,19 @@ Ressources :
 - [Tutoriel globe avec atmosphère](https://www.youtube.com/watch?v=vM8M4QloVL0) et [repo GitHub associé](https://github.com/chriscourses/Intermediate-Three.js/blob/main/main.js)
 
 A faire :
-- interactions avec le globe (rotation manuelle)
-- refactoriser pour "sortir" les éléments du ngAfterViewInit()
+- refactoriser pour "sortir" les éléments du ngAfterViewInit() et se passer des eventListener
 
 ## Sommaire
 1. [Initialisation du projet Angular](#Initialisation-du-projet)
 1. [Bases pour créer un objet 3D](#Création-d'un-composant-pour-l'affichage-d'un-objet-3D)
+    - [Template](#Template)
+    - [Fichier TS](#Classe-du-composant)
 1. [Notions supplémentaires pour le globe](#Création-d'un-globe-avec-texture-et-shaders)
+    - [Texture](#Appliquer-une-texture)
+    - [Shaders](#Utiliser-des-shaders)
+    - [BufferGeometry](#Utiliser-BufferGeometry)
+    - [Taille du canvas](#Taille-de-l'affichage)
+    - [Interactions](#Interactions-avec-l'objet)
 ---
 
 ## Initialisation du projet
@@ -103,6 +109,8 @@ Il y a peut-être plus simple mais c'est ce que j'ai trouvé dans toutes les dé
 
 ## Création d'un globe avec texture et shaders
 
+La création du globe se fait par les mêmes étapes que pour la démo précédente, avec des notions supplémentaires détaillées ci-après.
+
 ### Appliquer une texture
 
 Pour appliquer une texture à un objet 3D, il faut ajouter une texture à son Material.
@@ -120,7 +128,7 @@ const material = new THREE.MeshBasicMaterial({
 
 Un shader est un petit programme, écrit en GLSL, qui calcule les niveaux de lumière, couleur, etc. pendant le rendu d'un objet 3D. Je n'ai pas plus de détails concernant leur fonctionnement, en tout cas ici ils permettent de simuler l'atmosphère de la Terre et les étoiles.
 
-Normalement, le shader s'écrit dans un fichier à part (voir [src/assets/three-shaders](./src/assets/three-shaders/) pour les shaders avec commentaires), mais je n'ai pas réussi à importer les fichiers dans Angular comme on aurait pu le faire en JS, donc j'ai écrit les shaders sous forme de string directement dans le fichier TS.
+Normalement, le shader s'écrit dans un fichier à part, mais je n'ai pas réussi à importer les fichiers dans Angular comme on aurait pu le faire en JS, donc j'ai écrit les shaders sous forme de string directement dans le fichier TS (voir [src/assets/three-shaders](./src/assets/three-shaders/) pour les shaders avec commentaires).
 
 Pour utiliser un shader, il faut un Material de type ShaderMaterial ; à sa création, on lui passe un objet de configuration avec, selon les besoins :
 - vertexShader : script GLSL pour appliquer des effets à l'objet 3D via ses sommets
@@ -166,3 +174,29 @@ Pour adapter la taille du canvas et du Renderer à celle de son contenant, il fa
         false
     );
 ```
+
+### Interactions avec l'objet
+
+Pour une meilleure visualisation du globe, il fallait mettre en place 2 interactions :
+- Zoomer sur le globe
+- Faire tourner le globe manuellement
+
+Pour l'instant on passe par des `eventListener` ; le fichier est à refectoriser.
+
+#### Zoom :
+
+Le zoom se fait via l'évènement **wheel** ; le paramètre `deltaY` donne la valeur de déplacement de la molette.
+Il suffit donc de modifier le paramètre `zoom` de la caméra en fonction du `deltaY`.
+
+On utilise `Math.min()` et `Math.max()` pour paramétrer le zoom/dézoom maximum.
+
+On termine par `updateProjectionMatrix()` pour appliquer les changements.
+
+#### Rotation manuelle :
+
+Pour gérer la rotation, on crée par un objet `mouse` représentant les paramètres de la souris.
+
+On utilise 3 évènements :
+- **mousedown** s'active quand l'utilsateur enclenche le clic de la souris ; l'évènement nous permet d'initialiser les valeurs de `mouse` afin de stopper l'animation et commencer à suivre les mouvements de la souris
+- **mouseup** s'active quand l'utilisateur relache le clic, on l'utilise pour arrêter de suivre les mouvements de la souris
+- **mousemove** permet de suivre les mouvements de la souris et de modifier l'orientation du globe en fonction

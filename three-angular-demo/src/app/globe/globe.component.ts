@@ -10,7 +10,7 @@ export class GlobeComponent implements AfterViewInit {
 
   @ViewChild('canvas')
   private canvasRef!: ElementRef<HTMLCanvasElement>;
-  
+
   // Shaders (= content of assets/three-shaders files but I can't load them in Angular)
   private vertexShader = `
     varying vec2 vertexUV;
@@ -49,7 +49,7 @@ export class GlobeComponent implements AfterViewInit {
     }
   `;
 
-  constructor(private hostElement: ElementRef) {}
+  constructor(private hostElement: ElementRef) { }
 
   ngAfterViewInit(): void {
     // Creating the globe :
@@ -82,8 +82,9 @@ export class GlobeComponent implements AfterViewInit {
 
     // Earth Mesh
     const sphere = new THREE.Mesh(geometry, material);
-    // sphere.rotation.z = 0.2;
-    
+    sphere.rotation.y = Math.PI;
+
+
     // Adding extended atmosphere with another, bigger mesh
     const atmosphere = new THREE.Mesh(
       new THREE.SphereGeometry(5, 50, 50),
@@ -125,9 +126,9 @@ export class GlobeComponent implements AfterViewInit {
       // Attribute value = BufferAttribute so we have to convert the "matrix" grouped by 3
       new THREE.Float32BufferAttribute(vertices, 3)
     )
-    
+
     // We use PointsMaterial to apply color only to the geometry points (I think ?)
-    const starMaterial = new THREE.PointsMaterial({color: 0xFFFFFF});
+    const starMaterial = new THREE.PointsMaterial({ color: 0xFFFFFF });
 
     // Creating the mesh for stars
     const stars = new THREE.Points(starGeometry, starMaterial);
@@ -135,9 +136,13 @@ export class GlobeComponent implements AfterViewInit {
 
     // Creating and setting the other render elements :
 
+    // Grouping earth and atmosphere so they can be zoomed together
+    const group = new THREE.Group();
+    group.add(sphere);
+    group.add(atmosphere);
+
     const scene = new THREE.Scene();
-    scene.add(sphere);
-    scene.add(atmosphere);
+    scene.add(group);
     scene.add(stars);
 
 
@@ -149,25 +154,90 @@ export class GlobeComponent implements AfterViewInit {
     );
     camera.position.z = 11;
     
+    // // To have a nicer view ?
+    // camera.position.y = 4;
+    // camera.rotation.z = 0.2;
+    // camera.rotation.x = -0.3;
+    
+
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       canvas: this.canvasRef.nativeElement
     });
     renderer.setSize(this.hostElement.nativeElement.clientWidth, this.hostElement.nativeElement.clientHeight, false);
 
-    
-    // Render and animation :
 
+    // Render and interactions :
+
+    // For mouse interactions
+    const mouse = {
+      xPrev: 0,
+      yPrev: 0,
+      clicking: false,
+      hasClicked: false
+    }
+
+    // Rendering with animation
+    // Using an animation loop is required or the texture will not load (TextureLoader is async)
     function animate() {
       // Making a loop by recursion
       requestAnimationFrame(animate);
       // Rendering
       renderer.render(scene, camera);
 
-      // rotation
-      sphere.rotation.y += 0.005;
+      // Rotation until frame is first clicked
+      if (mouse.hasClicked === false) sphere.rotation.y += 0.005;
     }
     animate();
+
+    // Change mouse values when frame is clicked
+    this.canvasRef.nativeElement.addEventListener('mousedown', (event) => {
+      // Rotation is stopped when user first clicks the frame
+      mouse.hasClicked = true;
+      // "clicking" set to "true" so the mouse movement is followed only when click is held
+      mouse.clicking = true;
+      // Saving the mouse position
+      mouse.xPrev = event.clientX;
+      mouse.yPrev = event.clientY;
+    });
+
+    // Change mouse to unclicked when button is released to stop following mouse movement
+    addEventListener('mouseup', () => {
+      mouse.clicking = false;
+    });
+
+    // Move the globe when mouse is moved while clicked
+    addEventListener('mousemove', (event) => {
+      if (mouse.clicking) {
+        event.preventDefault();   // Useful ?
+
+        // Calculating the distance between the current mouse position and position when clicked
+        const deltaX = event.clientX - mouse.xPrev;
+        const deltaY = event.clientY - mouse.yPrev;
+
+        // Rotation for the globe according to the delta values
+        // Rotation speed is also adjusted to camera zoom level (slower when zoomed in)
+        sphere.rotation.x += deltaY * 0.005 / camera.zoom;
+        sphere.rotation.y += deltaX * 0.005 / camera.zoom;
+
+        // Updating mouse position
+        mouse.xPrev = event.clientX;
+        mouse.yPrev = event.clientY;
+      }
+    });
+
+    // Zooming in/out on wheel event
+    this.canvasRef.nativeElement.addEventListener('wheel', (event) => {
+      event.preventDefault();   // prevent scrolling
+
+      let newZoom = camera.zoom;   // take current zoom value
+      newZoom += event.deltaY * -0.003;  // adjust zoom according to scroll value
+      newZoom = Math.min(Math.max(1, newZoom), 4);  // set min/max zoom allowed
+
+      camera.zoom = newZoom  // assign new zoom value
+      camera.updateProjectionMatrix();  // make the changes take effect
+    }, false);
+
   }
 
 }
